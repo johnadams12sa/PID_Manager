@@ -1,33 +1,42 @@
 #include <iostream>
+#include <mutex>
+#include <pthread.h>
+#include <stdlib.h>
+#include <cstdlib>
+#include <assert.h>
+#include <unistd.h>
 #include "pid_manager.cpp"
+
+//function to allocate pid, sleep, and then release pid
+void* doPIDStuff(void* args){
+	int threadPID = allocate_pid();
+	sleep(1+(std::rand() % numberOfThreads));
+	release_pid(threadPID);
+}
 
 int main(){
 	//initialize pid map from MIN_PID to MAX_PID
 	allocate_map();
 	
-	// temporary variable pidPlaceHolder to hold value for pid
-	int pidPlaceHolder = 0;
+	//initialize an array of thread identifiers. Need to use pthread_t to create a reference for threads. Each thread needs one
+	pthread_t thread_ID[numberOfThreads];
 
-	//allocate all pid numbers for "tasks" to use
-	for(int pidPlaceHolder = MIN_PID; pidPlaceHolder < MAX_PID; pidPlaceHolder++){
-	pidPlaceHolder = allocate_pid();
-	std:: cout << "New PID Assigned: " << pidPlaceHolder << std::endl;
+	//initialize thread argument array
+	int thread_args[numberOfThreads];
+	int result_code;
+
+	//assign each thread the task of allocating a pid. Use pthread_create to create the threads
+	for(int i = 0; i < numberOfThreads; i++){
+		thread_args[i] = i;
+		result_code = pthread_create(&(thread_ID[i]), NULL, doPIDStuff, NULL);
+		assert(!result_code);
 	}
 
-	//release task 2000
-	release_pid(2000);
-	
-	//newly allocated task should get the pid number 2000 since it is the only available pid now
-	pidPlaceHolder = allocate_pid();
-	std:: cout << "New PID Assigned " << pidPlaceHolder << std::endl;
-	
-	//release a batch of pid numbers from 300 for when the "tasks" finish
-	for(int i = MIN_PID; i < 3000; i++){
-	release_pid(i);
+	//join all the threads back together
+	for(int j = 0; j < numberOfThreads; j++){
+		result_code= pthread_join(thread_ID[j],NULL);
+		assert(!result_code);
 	}
 
-	//new task should get pid number 300 since it is the first available number from the beginning of map
-	pidPlaceHolder = allocate_pid();
-	std::cout << "New PID Assigned " << pidPlaceHolder << std::endl;
 	return 0;
 }
